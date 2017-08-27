@@ -47,10 +47,10 @@ function RSG(len::Int64=1, seed::Int64=0)
 end
 
 set_from_seed!(rsg::RSG, len::Int64, seed::Int64) = copy!(rsg.state, seed_to_state_itr(len, seed))
-seed_to_state_itr(len::Int64, seed::Int64) = take(iterate(hash_uint32, seed), len)
+seed_to_state_itr(len::Int64, seed::Int64) = Base.Iterators.take(iterate(hash_uint32, seed), len)
 
 function next!(rsg::RSG)
-  map!(hash_uint32, rsg.state)
+  map!(hash_uint32, rsg.state, rsg.state)
   return rsg
 end
 function next(rsg0::RSG)

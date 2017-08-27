@@ -47,7 +47,7 @@ mutable struct BoundedPriorityQueue{K,V}
 
     function BoundedPriorityQueue{K,V}(N::Int64, o::Base.Order.Ordering=Base.Order.Forward) where {K,V}
         #higher is kept
-        new(PriorityQueue(K, V, o), N)
+        new(PriorityQueue{K,V,typeof(o)}(o), N)
     end
 end
 

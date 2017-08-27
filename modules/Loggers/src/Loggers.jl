@@ -119,7 +119,7 @@ function save_log(logfile::LogFile, logger::TaggedDFLogger)
     w = ZipFile.Writer(file)
     for (tag, log) in get_log(logger)
         f = ZipFile.addfile(w, "$tag.csv")
-        printtable(f, log)
+        DataFrames.printtable(f, log)
     end
     close(w)
 end
