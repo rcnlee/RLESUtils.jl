@@ -32,84 +32,13 @@
 # CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 # *****************************************************************************
 
-module DataFrameUtils
+module GraphVizUtils
 
-export convert_col_types!, convert_to_array_cols!, find_in_col, join_all,
-    PadMethod, ZeroPad, FillPad, RepeatLastPad, pad!, names_by_type
+export plot_graph
 
-using DataFrames
-using StringUtils
-
-"""
-Convert the columns of a dataframe D to specified types 
-"""
-function convert_col_types!(D::DataFrame, target_types::Vector{Type}, 
-    cols::Vector{Symbol}=Symbol[])
-    if isempty(cols)
-        cols = names(D)
-    end
-    for (c, T) in zip(cols, target_types)
-        D[c] = map(x->convert(T, x), D[c])
-    end
-    D
-end
-
-function convert_to_array_cols!(D::DataFrame)
-    for i = 1:length(D.columns)
-        D.columns[i] = convert(Array, D.columns[i])
-    end
-end
-
-function find_in_col{T}(D::DataFrame, src_col::Union{Symbol,Int64}, 
-    target_col::Union{Symbol,Int64}, src_val::T)
-    ind = find(D[src_col] .== src_val)
-    x = D[ind[1], target_col] #if there are multiple matches, take the first
-    x
-end
-
-join_all(Ds::AbstractDataFrame...; kwargs...) = join_all([d for d in Ds]; kwargs...)
-function join_all{T<:AbstractDataFrame}(Ds::AbstractVector{T}; kwargs...)
-    d = Ds[1]
-    for i = 2:length(Ds)
-        d = join(d, Ds[i]; kwargs...)
-    end
-    d
-end
-
-abstract PadMethod
-immutable FillPad <: PadMethod
-    vec::Vector{Any}
-end
-ZeroPad(d::DataFrame) = FillPad(zero.(eltypes(d)))
-immutable RepeatLastPad <: PadMethod end
-
-function pad!(p::FillPad, d::DataFrame, nrows::Int)
-    while nrow(d) < nrows
-        push!(d, p.vec)
-    end
-end
-function pad!(p::RepeatLastPad, d::DataFrame, nrows::Int)
-    row = convert(Array, d[end, :])
-    while nrow(d) < nrows
-        push!(d, row)
-    end
-end
-
-function names_by_type(D::DataFrame)
-    d = Dict{Type,Vector{Symbol}}()
-    for (nam, typ) in zip(names(D), eltypes(D))
-        if !haskey(d, typ)
-            d[typ] = [nam]
-        else
-            push!(d[typ], nam)
-        end
-    end
-    d
-end
-
-function names_by_type(D::DataFrame, typ::Type)
-    i = find(typ .== eltypes(D))
-    return names(D)[i]
+function plot_graph(dotfile::AbstractString, format::AbstractString="pdf", outfile::AbstractString="")
+    out = isempty(outfile) ? "-O" : "-o$outfile"
+    success(`dot -T$format $dotfile $out`)
 end
 
 end #module

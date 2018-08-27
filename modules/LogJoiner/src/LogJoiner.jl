@@ -62,14 +62,19 @@ function logjoin{T<:AbstractString}(logdir::AbstractString, logfile::AbstractStr
     joined = TaggedDFLogger()
     for subdir in readdir_dir(logdir)
         verbose && println("subdir=$subdir")
-        logs = load_log(LogFile(joinpath(subdir, logfile)))
+        f = LogFile(joinpath(subdir, logfile))
+        if !isfile(f.name)
+            warn("file not found $(f.name), skipping...")
+            break
+        end
+        logs = load_log(f)
         for (logname, sym) in zip(lognames, transpose_syms)
             verbose && println("  logname=$logname")
             D = logs[logname]
             if isa(sym, Symbol) #transpose if specified
                 D = transpose(D, sym)
             end
-            D[dir_sym] = fill(basename(subdir), nrow(D))
+            D[subdir_sym] = fill(basename(subdir), nrow(D))
             if haskey(cast_types, logname) #convert types if specified
                 Ts = cast_types[logname]
                 convert_col_types!(D, Ts)
@@ -87,6 +92,29 @@ function logjoin{T<:AbstractString}(logdir::AbstractString, logfile::AbstractStr
     writetable("$(outfileroot)_dataframe.csv.gz", D1) 
 
     joined
+end
+
+function logjoin(logdir::AbstractString, logfile::AbstractString, 
+    outfileroot::AbstractString=joinpath(logdir,"joined"),
+    verbose::Bool=false)
+
+    joined = nothing
+    for subdir in readdir_dir(logdir)
+        verbose && println("subdir=$subdir")
+        f = joinpath(subdir, logfile)
+        if !isfile(f)
+            warn("file not found $f, skipping...")
+            break
+        end
+        d = readtable(f)
+        if joined == nothing
+            joined = d
+        else
+            append!(joined, d)
+        end
+    end
+
+    writetable("$outfileroot.csv.gz", joined)
 end
 
 end #module
