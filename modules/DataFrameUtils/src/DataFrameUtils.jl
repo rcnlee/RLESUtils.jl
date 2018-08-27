@@ -76,7 +76,7 @@ function join_all{T<:AbstractDataFrame}(Ds::AbstractVector{T}; kwargs...)
     d
 end
 
-abstract PadMethod
+abstract type PadMethod end
 immutable FillPad <: PadMethod
     vec::Vector{Any}
 end

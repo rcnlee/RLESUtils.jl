@@ -47,8 +47,8 @@ using JSON
 using DataStructures
 using RLESUtils, StringUtils
 
-typealias ObjDict{T<:AbstractString} Dict{T,Any}
-typealias Primitive Union{Integer, Real, AbstractString, Symbol, Void}
+const ObjDict{T<:AbstractString} = Dict{T,Any}
+const Primitive = Union{Integer, Real, AbstractString, Symbol, Void}
 
 function to_dict(x)
   d = ObjDict{ASCIIString}()

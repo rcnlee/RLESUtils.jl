@@ -65,7 +65,7 @@ import Base: empty!, push!, setindex!, getindex, haskey, start, next, done, leng
     values, append!
 import Base.transpose
 
-abstract Logger
+abstract type Logger end
 
 immutable LogFile
    name::String
