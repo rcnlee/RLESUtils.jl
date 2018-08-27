@@ -32,58 +32,47 @@
 # CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 # *****************************************************************************
 
-using RLESUtils, Observers
-using Base.Test
+module OldObservers
 
-function test_observers()
-  obs = Observer()
+export Observer, add_observer, @notify_observer, @notify_observer_default
 
-  logger = Any[]
-  f1(x) = push!(logger, "f1($x)")
-  f2(x) = push!(logger, "f2($x)")
-  f3(x) = push!(logger, "f3($x)")
+import Base: empty!, delete!
 
-  add_observer(obs, f1)
-  add_observer(obs, f2)
-  @notify_observer_default(obs, 1)
-  @test logger == ["f1(1)", "f2(1)"]
-  empty!(logger)
-
-  add_observer(obs, "x", f3)
-  @notify_observer(obs, "x", 2)
-  @test logger == ["f3(2)"]
-  empty!(logger)
-
-  empty!(obs)
-  @notify_observer(obs, "x", 5)
-  @test isempty(logger)
-
-  empty!(obs)
-  big_alloc = false
-  make_big_alloc() = big_alloc = true
-  @notify_observer_default(obs, make_big_alloc())
-  @test big_alloc == false #should not be called
+type Observer
+  callbacks::Dict{String,Vector{Function}}
 end
+Observer() = Observer(Dict{String, Vector{Function}}())
 
-#parallel
-function test_par_observers(nthreads=3)
-  obs = Observer()
-
-  logger = Any[]
-  f1(x) = push!(logger, "id=$(myid()), thr=$(x[1]), x=$(x[2])")
-  add_observer(obs, f1)
-
-  pmap(1:nthreads) do thr
-    testinner(obs, thr)
+function add_observer(obs::Observer, tag::String, f::Function)
+  if !haskey(obs.callbacks, tag)
+    obs.callbacks[tag] = Function[]
   end
-
-  logger
+  push!(obs.callbacks[tag], f)
 end
 
-function testinner(obs::Observer, thr::Int64)
-  for i = 10:15
-    @notify_observer_default(obs, [thr, i])
+add_observer(obs::Observer, f::Function) = add_observer(obs, "_default", f::Function)
+
+#macro form allows allocations in arg to be no cost
+#i.e., in a functional form notify_observer(obs, tag, big_alloc()) will occur immediately
+#but avoided in macro form
+macro notify_observer(obs, tag, arg)
+  quote
+    if haskey($(esc(obs)).callbacks, $tag)
+      for f in $(esc(obs)).callbacks[$tag]
+        f($(esc(arg)))
+      end
+    end
   end
 end
 
-test_observers()
+#there's no multiple dispatch on macros, so need a unique name
+macro notify_observer_default(obs, arg)
+  quote
+    @notify_observer($(esc(obs)), "_default", $(esc(arg)))
+  end
+end
+
+empty!(obs::Observer) = empty!(obs.callbacks)
+delete!(obs::Observer, tag::String="_default") = delete!(obs.callbacks, tag)
+
+end #module
