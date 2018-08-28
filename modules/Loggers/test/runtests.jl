@@ -38,16 +38,16 @@ using Base.Test
 
 function test_tdflogger()
     logger = TaggedDFLogger()
-    add_folder!(logger, "folder1", [Bool, Int64], ["mybool", "myint"])
-    add_folder!(logger, "folder2", [Float64, Bool], ["myfloat", "mybool"])
-    g1 = push!_f(logger, "folder1")
-    g2 = push!_f(logger, "folder2")
+    add_folder!(logger, :folder1, [Bool, Int64], ["mybool", "myint"])
+    add_folder!(logger, :folder2, [Float64, Bool], ["myfloat", "mybool"])
+    g1 = push!_f(logger, :folder1)
+    g2 = push!_f(logger, :folder2)
     g1([true, 1])
     g1([false, 2])
     g2([1.1, false])
     g2([2.2, true])
-    log1 = get_log(logger, "folder1")
-    log2 = get_log(logger, "folder2")
+    log1 = get_log(logger, :folder1)
+    log2 = get_log(logger, :folder2)
     @test log1[:mybool] == [true, false]
     @test log1[:myint] == [1, 2]
     @test log2[:myfloat] == [1.1, 2.2]

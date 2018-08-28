@@ -56,10 +56,10 @@ export LogFile, Logger, get_log, empty!, push!,setindex!, getindex, haskey,
     start, next, done, length, push!_f, append_push!_f, save_log, load_log, 
     keys, values, set!, name
 export TaggedDFLogger, add_folder!, add_varlist!
-export save_log_old, load_log_old #deprecated, for legacy compat only
 
 using DataFrames
 using ZipFile
+using BSON
 
 import Base: empty!, push!, setindex!, getindex, haskey, start, next, done, length, keys, 
     values, append!
@@ -67,12 +67,12 @@ import Base.transpose
 
 abstract type Logger end
 
-immutable LogFile
+struct LogFile
    name::String
 
    function LogFile(file::AbstractString)
-        if !endswith(file, ".zip")
-            file *= ".zip"
+        if !endswith(file, ".bson")
+            file *= ".bson"
         end
         new(file)
     end
@@ -81,12 +81,12 @@ end
 name(logfile::LogFile) = logfile.name
 
 type TaggedDFLogger <: Logger
-    data::Dict{String,DataFrame}
+    data::Dict{Symbol,DataFrame}
 end
-TaggedDFLogger() = TaggedDFLogger(Dict{String,DataFrame}())
+TaggedDFLogger() = TaggedDFLogger(Dict{Symbol,DataFrame}())
 
-push!_f(logger::TaggedDFLogger, tag::AbstractString) = x -> push!(logger, tag, x)
-function append_push!_f(logger::TaggedDFLogger, tag::AbstractString, appendx)
+push!_f(logger::TaggedDFLogger, tag::Symbol) = x -> push!(logger, tag, x)
+function append_push!_f(logger::TaggedDFLogger, tag::Symbol, appendx)
     return x -> begin
         x = convert(Vector{Any}, x)
         push!(x, appendx...)
@@ -94,16 +94,11 @@ function append_push!_f(logger::TaggedDFLogger, tag::AbstractString, appendx)
     end
 end
 
-function add_varlist!(logger::TaggedDFLogger, tag::AbstractString)
+function add_varlist!(logger::TaggedDFLogger, tag::Symbol)
     add_folder!(logger, tag, [String, Any], ["variable", "value"])
 end
 
-function add_folder!{T<:Type,S<:AbstractString}(logger::TaggedDFLogger, tag::AbstractString, 
-    eltypes::Vector{T}, elnames::Vector{S})
-    add_folder!(logger, tag, eltypes, map(Symbol, elnames))
-end
-
-function add_folder!{T<:Type}(logger::TaggedDFLogger, tag::AbstractString, 
+function add_folder!{T<:Type}(logger::TaggedDFLogger, tag::Symbol, 
     eltypes::Vector{T}, elnames::Vector{Symbol}=Symbol[])
     if !haskey(logger, tag)
         logger.data[tag] = isempty(elnames) ? DataFrame(eltypes, 0) :
@@ -116,6 +111,26 @@ end
 
 function save_log(logfile::LogFile, logger::TaggedDFLogger)
     file = logfile.name
+    D = Dict{Symbol,Any}() 
+    for (tag, log) in get_log(logger)
+        D[tag] = log
+    end
+    bson(file, D)
+end
+
+function load_log(logfile::LogFile)
+    file = logfile.name
+    logger = TaggedDFLogger()
+    D = BSON.load(file) 
+    for (tag,df) in D 
+        logger.data[tag] = df 
+    end
+    logger
+end
+
+function save_log_old(logfile::LogFile, logger::TaggedDFLogger)
+    warn("save_log_old is deprecated")
+    file = logfile.name
     w = ZipFile.Writer(file)
     for (tag, log) in get_log(logger)
         f = ZipFile.addfile(w, "$tag.csv")
@@ -124,7 +139,8 @@ function save_log(logfile::LogFile, logger::TaggedDFLogger)
     close(w)
 end
 
-function load_log(logfile::LogFile)
+function load_log_old(logfile::LogFile)
+    warn("save_log_old is deprecated")
     file = logfile.name
     logger = TaggedDFLogger()
     r = ZipFile.Reader(file)
@@ -136,7 +152,7 @@ function load_log(logfile::LogFile)
     logger
 end
 
-function save_log_old(file::AbstractString, logger::TaggedDFLogger)
+function save_log_old2(file::AbstractString, logger::TaggedDFLogger)
     warn("save_log_old is deprecated")
     fileroot = splitext(file)[1]
     f = open(file, "w")
@@ -149,7 +165,7 @@ function save_log_old(file::AbstractString, logger::TaggedDFLogger)
     close(f)
 end
 
-function load_log_old(file::AbstractString)
+function load_log_old2(file::AbstractString)
     warn("load_log_old is deprecated")
     dir = dirname(file)
     logger = TaggedDFLogger()
@@ -175,7 +191,7 @@ function load_log_old(file::AbstractString)
     logger
 end
 
-function push!(logger::TaggedDFLogger,tag::AbstractString, x) 
+function push!(logger::TaggedDFLogger,tag::Symbol, x) 
     try
         push!(logger.data[tag], x)
     catch e
@@ -185,15 +201,15 @@ function push!(logger::TaggedDFLogger,tag::AbstractString, x)
 end
 
 get_log(logger::TaggedDFLogger) = logger.data
-get_log(logger::TaggedDFLogger, tag::AbstractString) = logger.data[tag]
-set!(logger::TaggedDFLogger, tag::AbstractString, D::DataFrame) = logger.data[tag] = D
-append!(logger::TaggedDFLogger, tag::AbstractString, D::DataFrame) = append!(logger.data[tag], D)
+get_log(logger::TaggedDFLogger, tag::Symbol) = logger.data[tag]
+set!(logger::TaggedDFLogger, tag::Symbol, D::DataFrame) = logger.data[tag] = D
+append!(logger::TaggedDFLogger, tag::Symbol, D::DataFrame) = append!(logger.data[tag], D)
 
 keys(logger::TaggedDFLogger) = keys(logger.data)
 values(logger::TaggedDFLogger) = values(logger.data)
-haskey(logger::TaggedDFLogger, tag::AbstractString) = haskey(logger.data, tag)
-getindex(logger::TaggedDFLogger, tag::AbstractString) = logger.data[tag]
-setindex!(logger::TaggedDFLogger, x, tag::AbstractString) = logger.data[tag] = x
+haskey(logger::TaggedDFLogger, tag::Symbol) = haskey(logger.data, tag)
+getindex(logger::TaggedDFLogger, tag::Symbol) = logger.data[tag]
+setindex!(logger::TaggedDFLogger, x, tag::Symbol) = logger.data[tag] = x
 empty!(logger::TaggedDFLogger) = empty!(logger.data)
 start(logger::TaggedDFLogger) = start(logger.data)
 next(logger::TaggedDFLogger, s) = next(logger.data, s)

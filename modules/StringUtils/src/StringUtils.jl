@@ -115,7 +115,7 @@ function convert(::Type{Vector{String}}, s::String)
     rex = r"^[^\[]*\[([^\]]+)]$"
     m = match(rex, s)
     toks = split(replace(m.captures[1], "\"", ""), ',') #remove quotes and split
-    map!(x->replace(x, "\\\\", "\\"), toks) #extra slashes are introduced when calling string, remove them
+    map!(x->replace(x, "\\\\", "\\"), toks, toks) #extra slashes are introduced when calling string, remove them
     out = convert(Vector{String}, toks)
     out
 end

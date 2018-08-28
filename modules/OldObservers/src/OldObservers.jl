@@ -39,18 +39,18 @@ export Observer, add_observer, @notify_observer, @notify_observer_default
 import Base: empty!, delete!
 
 type Observer
-  callbacks::Dict{String,Vector{Function}}
+  callbacks::Dict{Symbol,Vector{Function}}
 end
-Observer() = Observer(Dict{String, Vector{Function}}())
+Observer() = Observer(Dict{Symbol, Vector{Function}}())
 
-function add_observer(obs::Observer, tag::String, f::Function)
+function add_observer(obs::Observer, tag::Symbol, f::Function)
   if !haskey(obs.callbacks, tag)
     obs.callbacks[tag] = Function[]
   end
   push!(obs.callbacks[tag], f)
 end
 
-add_observer(obs::Observer, f::Function) = add_observer(obs, "_default", f::Function)
+add_observer(obs::Observer, f::Function) = add_observer(obs, :_default, f::Function)
 
 #macro form allows allocations in arg to be no cost
 #i.e., in a functional form notify_observer(obs, tag, big_alloc()) will occur immediately
@@ -68,11 +68,11 @@ end
 #there's no multiple dispatch on macros, so need a unique name
 macro notify_observer_default(obs, arg)
   quote
-    @notify_observer($(esc(obs)), "_default", $(esc(arg)))
+    @notify_observer($(esc(obs)), :_default, $(esc(arg)))
   end
 end
 
 empty!(obs::Observer) = empty!(obs.callbacks)
-delete!(obs::Observer, tag::String="_default") = delete!(obs.callbacks, tag)
+delete!(obs::Observer, tag::Symbol=:_default) = delete!(obs.callbacks, tag)
 
 end #module
