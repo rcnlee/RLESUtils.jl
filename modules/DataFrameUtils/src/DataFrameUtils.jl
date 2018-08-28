@@ -68,11 +68,20 @@ function find_in_col{T}(D::DataFrame, src_col::Union{Symbol,Int64},
 end
 
 join_all(Ds::AbstractDataFrame...; kwargs...) = join_all([d for d in Ds]; kwargs...)
-function join_all{T<:AbstractDataFrame}(Ds::AbstractVector{T}; kwargs...)
-    d = Ds[1]
+function join_all{T<:AbstractDataFrame}(Ds::AbstractVector{T}; on=:x1, names=[])
+    D = Ds[1]
+    !isempty(names) && prepend_names!(D, names[1], on)
     for i = 2:length(Ds)
-        d = join(d, Ds[i]; kwargs...)
+        d = Ds[i] 
+        !isempty(names) && prepend_names!(d, names[i], on)
+        D = join(D, d; on=on)
     end
+    D
+end
+
+function prepend_names!(d::AbstractDataFrame, prefix::Symbol, exclude::Symbol; separator="_")
+    ns = [n == exclude ? n : Symbol(string(prefix,separator,n)) for n in names(d)]
+    names!(d, ns)
     d
 end
 
